@@ -1,9 +1,9 @@
+use pam::Authenticator;
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     output::{OutputHandler, OutputState},
     reexports::{
         calloop::{
-            timer::{TimeoutAction, Timer},
             EventLoop, LoopHandle,
         },
         calloop_wayland_source::WaylandSource,
@@ -36,6 +36,7 @@ struct AppData {
     exit: bool,
     seat_state: SeatState,
     keyboard: Option<wl_keyboard::WlKeyboard>,
+    password: String,
 }
 
 fn main() {
@@ -61,6 +62,7 @@ fn main() {
         exit: false,
         seat_state: SeatState::new(&globals, &qh),
         keyboard: None,
+        password: String::new(),
     };
 
     app_data.session_lock =
@@ -109,14 +111,30 @@ impl KeyboardHandler for AppData {
         event: KeyEvent,
     ) {
         println!("Key press: {event:?}");
-        // press 'esc' to exit
-        if event.keysym == Keysym::Escape {
-            self.exit = true;
-        }
-        if event.keysym == Keysym::space {
-            self.session_lock.take();
-            _conn.roundtrip().unwrap();
-            self.exit = true;
+        if event.keysym == Keysym::Return {
+            let mut authenticator = Authenticator::with_password("system-auth").unwrap();
+            let user = std::env::var("USER").unwrap();
+
+            authenticator
+                .get_handler()
+                .set_credentials(user, self.password.as_str());
+
+            if authenticator.authenticate().is_ok() {
+                println!("Authenticated");
+                self.session_lock.take();
+                _conn.roundtrip().unwrap();
+                self.exit = true;
+            } else {
+                println!("Authentication failed");
+            }
+        } else if event.keysym == Keysym::BackSpace {
+            self.password.pop();
+            println!("Password: {}", self.password);
+        } 
+        else {
+            let key = event.keysym.key_char().unwrap();
+            self.password.push_str(&key.to_string());
+            println!("Password: {}", self.password);
         }
     }
 

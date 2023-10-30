@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.10.0"
+pam = "0.7.0"
 smithay-client-toolkit = { git = "https://github.com/Smithay/client-toolkit" }
 wayland-client = "0.31.1"
 
