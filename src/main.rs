@@ -1,4 +1,4 @@
-use pam::Authenticator;
+use pam::{Authenticator, PasswordConv};
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     output::{OutputHandler, OutputState},
@@ -23,6 +23,8 @@ use wayland_client::{
     Connection, QueueHandle,
 };
 
+mod input;
+
 struct AppData {
     loop_handle: LoopHandle<'static, Self>,
     conn: Connection,
@@ -39,6 +41,8 @@ struct AppData {
     password: String,
     width: u32,
     height: u32,
+    failed: bool,
+    authenticator: Authenticator<'static, PasswordConv>,
 }
 
 fn main() {
@@ -67,6 +71,8 @@ fn main() {
         password: String::new(),
         width: 0,
         height: 0,
+        failed: false,
+        authenticator: Authenticator::with_password("system-auth").unwrap(),
     };
 
     app_data.session_lock =
@@ -80,88 +86,6 @@ fn main() {
         if app_data.exit {
             break;
         }
-    }
-}
-
-impl KeyboardHandler for AppData {
-    fn enter(
-        &mut self,
-        _: &Connection,
-        _qh: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        surface: &wl_surface::WlSurface,
-        _: u32,
-        _: &[u32],
-        keysyms: &[Keysym],
-    ) {
-    }
-
-    fn leave(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        surface: &wl_surface::WlSurface,
-        _: u32,
-    ) {
-    }
-
-    fn press_key(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: u32,
-        event: KeyEvent,
-    ) {
-        println!("Key press: {event:?}");
-        if event.keysym == Keysym::Return {
-            let mut authenticator = Authenticator::with_password("system-auth").unwrap();
-            let user = std::env::var("USER").unwrap();
-
-            authenticator
-                .get_handler()
-                .set_credentials(user, self.password.as_str());
-
-            if authenticator.authenticate().is_ok() {
-                println!("Authenticated");
-                self.session_lock.take();
-                _conn.roundtrip().unwrap();
-                self.exit = true;
-            } else {
-                println!("Authentication failed");
-            }
-        } else if event.keysym == Keysym::BackSpace {
-            self.password.pop();
-            println!("Password: {}", self.password);
-        } 
-        else {
-            let key = event.keysym.key_char().unwrap();
-            self.password.push_str(&key.to_string());
-            println!("Password: {}", self.password);
-        }
-    }
-
-    fn release_key(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: u32,
-        event: KeyEvent,
-    ) {
-        println!("Key release: {event:?}");
-    }
-
-    fn update_modifiers(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _serial: u32,
-        modifiers: Modifiers,
-    ) {
-        println!("Update modifiers: {modifiers:?}");
     }
 }
 
@@ -182,8 +106,6 @@ impl SessionLockHandler for AppData {
         _qh: &QueueHandle<Self>,
         _session_lock: SessionLock,
     ) {
-        println!("Finished");
-        self.exit = true;
     }
 
     fn configure(
@@ -200,14 +122,8 @@ impl SessionLockHandler for AppData {
         let mut pool = RawPool::new(width as usize * height as usize * 4, &self.shm).unwrap();
         let canvas = pool.mmap();
         canvas.chunks_exact_mut(4).enumerate().for_each(|(index, chunk)| {
-            let x = (index % width as usize) as u32;
-            let y = (index / width as usize) as u32;
 
-            let a = 0xFF;
-            let r = u32::min(((width - x) * 0xFF) / width, ((height - y) * 0xFF) / height);
-            let g = u32::min((x * 0xFF) / width, ((height - y) * 0xFF) / height);
-            let b = u32::min(((width - x) * 0xFF) / width, (y * 0xFF) / height);
-            let color = (a << 24) + (r << 16) + (g << 8) + b;
+            let color = 0xFF000000 as u32;
 
             let array: &mut [u8; 4] = chunk.try_into().unwrap();
             *array = color.to_le_bytes();
@@ -274,12 +190,16 @@ impl CompositorHandler for AppData {
             let square_size = 16;
             let number_of_squares = (self.password.len() * 2) as u32;
 
+
+            if self.failed {
+                color = 0xFFFF0000 as u32;
+            } 
             if x > (width - (square_size * number_of_squares)) / 2
                 && x < (width + (square_size * number_of_squares)) / 2
                 && y > (height - square_size) / 2
                 && y < (height + square_size) / 2
             {
-                let square_index = (x - (width - (5 * number_of_squares)) / 2) / square_size;
+                let square_index = (x - (width - (square_size * number_of_squares)) / 2) / square_size;
                 if square_index % 2 == 0 {
                     color = 0xFFFFFFFF as u32;
                 }
@@ -307,44 +227,6 @@ impl CompositorHandler for AppData {
 
         buffer.destroy();
     }
-}
-
-impl SeatHandler for AppData {
-    fn seat_state(&mut self) -> &mut SeatState {
-        &mut self.seat_state
-    }
-
-    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
-
-    fn new_capability(
-        &mut self,
-        _conn: &Connection,
-        qh: &QueueHandle<Self>,
-        seat: wl_seat::WlSeat,
-        capability: Capability,
-    ) {
-        if capability == Capability::Keyboard && self.keyboard.is_none() {
-            println!("Set keyboard capability");
-            let keyboard =
-                self.seat_state.get_keyboard(qh, &seat, None).expect("Failed to create keyboard");
-            self.keyboard = Some(keyboard);
-        }
-    }
-
-    fn remove_capability(
-        &mut self,
-        _conn: &Connection,
-        _: &QueueHandle<Self>,
-        _: wl_seat::WlSeat,
-        capability: Capability,
-    ) {
-        if capability == Capability::Keyboard && self.keyboard.is_some() {
-            println!("Unset keyboard capability");
-            self.keyboard.take().unwrap().release();
-        }
-    }
-
-    fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
 }
 
 impl OutputHandler for AppData {
