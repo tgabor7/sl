@@ -37,6 +37,8 @@ struct AppData {
     seat_state: SeatState,
     keyboard: Option<wl_keyboard::WlKeyboard>,
     password: String,
+    width: u32,
+    height: u32,
 }
 
 fn main() {
@@ -63,6 +65,8 @@ fn main() {
         seat_state: SeatState::new(&globals, &qh),
         keyboard: None,
         password: String::new(),
+        width: 0,
+        height: 0,
     };
 
     app_data.session_lock =
@@ -83,7 +87,7 @@ impl KeyboardHandler for AppData {
     fn enter(
         &mut self,
         _: &Connection,
-        _: &QueueHandle<Self>,
+        _qh: &QueueHandle<Self>,
         _: &wl_keyboard::WlKeyboard,
         surface: &wl_surface::WlSurface,
         _: u32,
@@ -191,7 +195,8 @@ impl SessionLockHandler for AppData {
         _serial: u32,
     ) {
         let (width, height) = configure.new_size;
-
+        self.width = width;
+        self.height = height;
         let mut pool = RawPool::new(width as usize * height as usize * 4, &self.shm).unwrap();
         let canvas = pool.mmap();
         canvas.chunks_exact_mut(4).enumerate().for_each(|(index, chunk)| {
@@ -218,6 +223,10 @@ impl SessionLockHandler for AppData {
         );
 
         session_lock_surface.wl_surface().attach(Some(&buffer), 0, 0);
+
+        session_lock_surface.wl_surface().damage_buffer(0, 0, width as i32, height as i32);
+        session_lock_surface.wl_surface().frame(qh, session_lock_surface.wl_surface().clone());
+
         session_lock_surface.wl_surface().commit();
 
         buffer.destroy();
@@ -250,6 +259,53 @@ impl CompositorHandler for AppData {
         _surface: &wl_surface::WlSurface,
         _time: u32,
     ) {
+        println!("Frame");
+
+
+        let (width, height) = (self.width, self.height);
+
+        let mut pool = RawPool::new(width as usize * height as usize * 4, &self.shm).unwrap();
+        let canvas = pool.mmap();
+        canvas.chunks_exact_mut(4).enumerate().for_each(|(index, chunk)| {
+            let x = (index % width as usize) as u32;
+            let y = (index / width as usize) as u32;
+            let mut color = 0xFF000000 as u32;
+
+            let square_size = 16;
+            let number_of_squares = (self.password.len() * 2) as u32;
+
+            if x > (width - (square_size * number_of_squares)) / 2
+                && x < (width + (square_size * number_of_squares)) / 2
+                && y > (height - square_size) / 2
+                && y < (height + square_size) / 2
+            {
+                let square_index = (x - (width - (5 * number_of_squares)) / 2) / square_size;
+                if square_index % 2 == 0 {
+                    color = 0xFFFFFFFF as u32;
+                }
+            }
+
+            let array: &mut [u8; 4] = chunk.try_into().unwrap();
+            *array = color.to_le_bytes();
+        });
+        let buffer = pool.create_buffer(
+            0,
+            width as i32,
+            height as i32,
+            width as i32 * 4,
+            wl_shm::Format::Argb8888,
+            (),
+            _qh,
+        );
+
+        _surface.attach(Some(&buffer), 0, 0);
+
+        _surface.damage_buffer(0, 0, width as i32, height as i32);
+        _surface.frame(_qh, _surface.clone());
+
+        _surface.commit();
+
+        buffer.destroy();
     }
 }
 
