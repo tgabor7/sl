@@ -14,16 +14,17 @@ use smithay_client_toolkit::{
         SessionLock, SessionLockHandler, SessionLockState, SessionLockSurface,
         SessionLockSurfaceConfigure,
     },
-    shm::{raw::RawPool, Shm, ShmHandler}, seat::{keyboard::{KeyboardHandler, Keysym, KeyEvent, Modifiers}, SeatHandler, Capability, SeatState},
+    shm::{raw::RawPool, Shm, ShmHandler}, seat::SeatState,
 };
 use std::time::Duration;
 use wayland_client::{
     globals::registry_queue_init,
-    protocol::{wl_buffer, wl_output, wl_shm, wl_surface, wl_keyboard, wl_seat},
+    protocol::{wl_buffer, wl_output, wl_shm, wl_surface, wl_keyboard},
     Connection, QueueHandle,
 };
 
 mod input;
+mod rendering;
 
 struct AppData {
     loop_handle: LoopHandle<'static, Self>,
@@ -144,86 +145,6 @@ impl SessionLockHandler for AppData {
         session_lock_surface.wl_surface().frame(qh, session_lock_surface.wl_surface().clone());
 
         session_lock_surface.wl_surface().commit();
-
-        buffer.destroy();
-    }
-}
-
-impl CompositorHandler for AppData {
-    fn scale_factor_changed(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _surface: &wl_surface::WlSurface,
-        _new_factor: i32,
-    ) {
-    }
-
-    fn transform_changed(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _surface: &wl_surface::WlSurface,
-        _new_transform: wl_output::Transform,
-    ) {
-    }
-
-    fn frame(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _surface: &wl_surface::WlSurface,
-        _time: u32,
-    ) {
-        println!("Frame");
-
-
-        let (width, height) = (self.width, self.height);
-
-        let mut pool = RawPool::new(width as usize * height as usize * 4, &self.shm).unwrap();
-        let canvas = pool.mmap();
-        canvas.chunks_exact_mut(4).enumerate().for_each(|(index, chunk)| {
-            let x = (index % width as usize) as u32;
-            let y = (index / width as usize) as u32;
-            let mut color = 0xFF000000 as u32;
-
-            let square_size = 16;
-            let number_of_squares = (self.password.len() * 2) as u32;
-
-
-            if self.failed {
-                color = 0xFFFF0000 as u32;
-            } 
-            if x > (width - (square_size * number_of_squares)) / 2
-                && x < (width + (square_size * number_of_squares)) / 2
-                && y > (height - square_size) / 2
-                && y < (height + square_size) / 2
-            {
-                let square_index = (x - (width - (square_size * number_of_squares)) / 2) / square_size;
-                if square_index % 2 == 0 {
-                    color = 0xFFFFFFFF as u32;
-                }
-            }
-
-            let array: &mut [u8; 4] = chunk.try_into().unwrap();
-            *array = color.to_le_bytes();
-        });
-        let buffer = pool.create_buffer(
-            0,
-            width as i32,
-            height as i32,
-            width as i32 * 4,
-            wl_shm::Format::Argb8888,
-            (),
-            _qh,
-        );
-
-        _surface.attach(Some(&buffer), 0, 0);
-
-        _surface.damage_buffer(0, 0, width as i32, height as i32);
-        _surface.frame(_qh, _surface.clone());
-
-        _surface.commit();
 
         buffer.destroy();
     }

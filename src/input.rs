@@ -14,6 +14,7 @@ impl KeyboardHandler for AppData {
         _: &[u32],
         keysyms: &[Keysym],
     ) {
+        println!("Enter keyboard");
     }
 
     fn leave(
