@@ -17,6 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Insall dependencies
-      run: sudo apt-get install -y libxkbcommon-dev libwayland-dev libwayland-egl-backend-dev libudev-dev libinput-dev libxcb-composite0-dev libxcb-xfixes0-dev pam
+      run: sudo apt-get install -y libxkbcommon-dev libwayland-dev libwayland-egl-backend-dev libudev-dev libinput-dev libxcb-composite0-dev libxcb-xfixes0-dev libpam0g-dev
     - name: Build
       run: cargo build --verbose
