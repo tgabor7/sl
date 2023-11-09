@@ -52,9 +52,6 @@ impl CompositorHandler for AppData {
         _surface: &wl_surface::WlSurface,
         _time: u32,
     ) {
-        println!("Frame");
-
-
         let (width, height) = (self.width, self.height);
 
         let mut pool = RawPool::new(width as usize * height as usize * 4, &self.shm).unwrap();
@@ -69,7 +66,6 @@ impl CompositorHandler for AppData {
         });
 
         for i in 0..self.password.len() {
-            // draw in middle of screen
             let x = (width as i32 / 2) + (i as i32 * 40) - (self.password.len() as i32 * 20);
             let y = height as i32 / 2;
             let radius = 16;
