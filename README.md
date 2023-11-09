@@ -2,7 +2,7 @@
 
 Wayland screenlock using smithay.
 
-![alt text](https://github.com/tgabor7/sl/blob/main/images/screenshot/image.png?raw=true)
+![alt text](https://github.com/tgabor7/sl/blob/main/images/screenshot.png?raw=true)
 
 # Building
 
