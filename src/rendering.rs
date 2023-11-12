@@ -66,9 +66,9 @@ impl CompositorHandler for AppData {
         });
 
         for i in 0..self.password.len() {
-            let x = (width as i32 / 2) + (i as i32 * 40) - (self.password.len() as i32 * 20);
+            let x = (width as i32 / 2) + (i as i32 * 20) - (self.password.len() as i32 * 10);
             let y = height as i32 / 2;
-            let radius = 16;
+            let radius = 8;
             draw_circle(&mut pool, width, height, x, y, radius);
         }
 

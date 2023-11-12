@@ -21,6 +21,16 @@ jobs:
     - name: Build
       run: cargo build --verbose
 
+  tag:
+    name: Tag
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/checkout@v3
+      id: tag
+    - name: Generate version
+      run: ./scripts/generateVersion.sh patch >> $GITHUB_OUTPUT
+
   release:
     name: Release Simple Lock
     runs-on: ubuntu-latest
@@ -31,7 +41,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.run_number }}
-        release_name: Release ${{ github.run_number }}
+        tag_name: ${{ steps.tag.outputs.version }}
+        release_name: ${{ steps.tag.outputs.version }}
         draft: false
         prerelease: false
