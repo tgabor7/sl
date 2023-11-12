@@ -38,7 +38,7 @@ jobs:
     - name: Get version
       id: version
       env: 
-        VERSION: ${{ needs.tag.outputs.version }}
+        VERSION: "${{ needs.tag.outputs.version }}"
       run: echo "version $VERSION"
     - uses: actions/create-release@v1
       id: create_release
