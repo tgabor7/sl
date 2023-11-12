@@ -2,6 +2,11 @@
 
 TAG=`git tag --sort version:refname | tail -n1`
 
+if [ -z "$TAG" ]; then
+  echo "version=v0.0.0"
+  exit 1
+fi
+
 update_major_tag() {
   local major=`echo $TAG | cut -d. -f1`
   local minor=`echo $TAG | cut -d. -f2`
@@ -26,7 +31,7 @@ update_patch_tag() {
   local patch=`echo $TAG | cut -d. -f3`
   local new_patch=$((patch+1))
   local new_tag="$major.$minor.$new_patch"
-  echo "version='$new_tag'"
+  echo "version=$new_tag"
 }
 
 if [ "$1" == "major" ]; then
