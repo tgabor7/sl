@@ -26,8 +26,9 @@ jobs:
     outputs:
       version: ${{ steps.create_version.outputs.version }}
     steps:
+      - uses: actions/checkout@v2
       - id: create_version
-        run: scripts/generateVersion.sh patch >> "$GITHUB_OUTPUT"
+        run: ./scripts/generateVersion.sh patch >> "$GITHUB_OUTPUT"
 
   release:
     name: Release Simple Lock
