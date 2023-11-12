@@ -4,7 +4,7 @@ TAG=`git tag --sort version:refname | tail -n1`
 
 if [ -z "$TAG" ]; then
   echo "version=v0.0.0"
-  exit 1
+  exit 0
 fi
 
 update_major_tag() {
