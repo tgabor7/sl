@@ -2,7 +2,7 @@
 
 TAG=`git tag --sort version:refname | tail -n1`
 
-echo "version=hello"
+echo "version=$TAG"
 
 # update_major_tag() {
 #   local major=`echo $TAG | cut -d. -f1`
