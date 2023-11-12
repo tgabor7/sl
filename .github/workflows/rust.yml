@@ -38,6 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+    - uses: actions/checkout@v3
+    - name: Get version
+      id: version
+      env: 
+        VERSION: ${{ needs.tag.outputs.version }}
+      run: echo "version $VERSION"
     - uses: actions/create-release@v1
       id: create_release
       env:
