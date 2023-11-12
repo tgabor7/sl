@@ -28,7 +28,7 @@ jobs:
       version: ${{ steps.create_version.outputs.version }}
     steps:
       - id: create_version
-        run: echo "version=hello" >> "$GITHUB_OUTPUT"
+        run: ./scripts/generateVersion.sh patch >> "$GITHUB_OUTPUT"
 
   release:
     name: Release Simple Lock
