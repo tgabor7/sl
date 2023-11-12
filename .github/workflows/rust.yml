@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     outputs: 
-      version: ${{ steps.tag.outputs.version }}
+      version: ${{ steps.tag.outputs.VERSION }}
     steps:
     - name: Set color
       id: color-selector
@@ -40,7 +40,7 @@ jobs:
     - name: Get version
       id: version
       env: 
-        VERSION: ${{ needs.tag.outputs.VERSION }}
+        VERSION: ${{ needs.tag.outputs.version }}
       run: echo "version $VERSION"
     - uses: actions/create-release@v1
       id: create_release
