@@ -26,7 +26,7 @@ update_patch_tag() {
   local patch=`echo $TAG | cut -d. -f3`
   local new_patch=$((patch+1))
   local new_tag="$major.$minor.$new_patch"
-  echo "version=$new_tag"
+  echo "version='$new_tag'"
 }
 
 if [ "$1" == "major" ]; then
